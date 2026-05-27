@@ -1,0 +1,18 @@
+appId: com.novel-script-studio.app
+productName: NovelScript Studio
+directories:
+  output: release
+win:
+  target: nsis
+  icon: resources/icon.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+files:
+  - dist/**/*
+  - resources/**/*
+extraResources:
+  - from: resources/
+    to: resources/

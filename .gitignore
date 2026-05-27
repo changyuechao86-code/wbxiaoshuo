@@ -1,0 +1,17 @@
+node_modules/
+dist/
+release/
+.codex-logs/
+
+*.log
+*.local
+*.db
+*.db-*
+
+.DS_Store
+Thumbs.db
+
+coverage/
+.vite/
+.env
+.env.*
