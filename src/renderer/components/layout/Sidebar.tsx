@@ -26,7 +26,7 @@ import {
   AttachMoney as RevenueIcon,
 } from '@mui/icons-material';
 import { useProjectStore } from '../../stores/useProjectStore';
-import type { Project } from '@shared/types';
+import type { Project } from '../../../shared/types';
 
 interface NavItem {
   id: string;

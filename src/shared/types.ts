@@ -134,6 +134,19 @@ export interface Storyboard {
   prompt: string;
 }
 
+export interface AppSettings {
+  theme: 'dark' | 'light';
+  fontSize: number;
+  lineHeight: number;
+  autoSaveDelay: number;
+}
+
+export interface OutlineReorderItem {
+  id: string;
+  parentId: string | null;
+  order: number;
+}
+
 // ==================== AI 类型 ====================
 
 export interface AIConfig {
@@ -167,7 +180,7 @@ export interface AIStreamChunk {
 export type CreateProjectDTO = Omit<Project, 'id' | 'createdAt' | 'updatedAt'>;
 export type UpdateProjectDTO = Partial<Pick<Project, 'name' | 'type' | 'dailyGoal'>>;
 
-export type CreateChapterDTO = Omit<Chapter, 'id' | 'createdAt' | 'updatedAt' | 'plainText' | 'wordCount'>;
+export type CreateChapterDTO = Omit<Chapter, 'id' | 'createdAt' | 'updatedAt'>;
 export type UpdateChapterDTO = Partial<Pick<Chapter, 'title' | 'content' | 'plainText' | 'wordCount' | 'status' | 'order'>>;
 
 export type CreateCharacterDTO = Omit<Character, 'id' | 'createdAt' | 'updatedAt'>;

@@ -19,7 +19,9 @@ const electronModule = (() => {
 
   // 方法3：使用 Electron 内置绑定
   try {
-    const binding = process._linkedBinding('electron_common_electron');
+    const binding = (process as typeof process & {
+      _linkedBinding?: (name: string) => any;
+    })._linkedBinding?.('electron_common_electron');
     if (binding && binding.app) return binding;
   } catch (_) {}
 

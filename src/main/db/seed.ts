@@ -1,4 +1,4 @@
-import { DatabaseConnection } from '../connection';
+import { DatabaseConnection } from './connection';
 import { v4 as uuidv4 } from 'uuid';
 
 export function seedDemoProject(): string {

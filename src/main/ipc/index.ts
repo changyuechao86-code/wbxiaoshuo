@@ -2,7 +2,7 @@
  * IPC 处理器注册入口
  * 集中注册所有 IPC handlers，支持动态扩展
  */
-import { ipcMain } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import { logger } from '../utils/logger';
 import { registerProjectHandlers } from './project.ipc';
 import { registerChapterHandlers } from './chapter.ipc';
@@ -35,16 +35,16 @@ export function registerAllHandlers(): void {
 
     // 注册窗口控制 handlers
     ipcMain.on('app:minimize', (event) => {
-      event.sender.getOwnerBrowserWindow()?.minimize();
+      BrowserWindow.fromWebContents(event.sender)?.minimize();
     });
     ipcMain.on('app:maximize', (event) => {
-      const win = event.sender.getOwnerBrowserWindow();
+      const win = BrowserWindow.fromWebContents(event.sender);
       if (win) {
         win.isMaximized() ? win.unmaximize() : win.maximize();
       }
     });
     ipcMain.on('app:close', (event) => {
-      event.sender.getOwnerBrowserWindow()?.close();
+      BrowserWindow.fromWebContents(event.sender)?.close();
     });
 
     logger.info('IPC 处理器注册完成 (11 个模块)');

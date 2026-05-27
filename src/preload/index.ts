@@ -118,9 +118,9 @@ export interface ElectronAPI {
   // File
   file: {
     backup(): Promise<string>;
-    restore(filePath: string): Promise<void>;
+    restore(filePath?: string): Promise<void>;
     exportDb(): Promise<string>;
-    importDb(filePath: string): Promise<void>;
+    importDb(filePath?: string): Promise<void>;
   };
 
   // App

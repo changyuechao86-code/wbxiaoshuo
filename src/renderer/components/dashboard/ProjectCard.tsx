@@ -49,7 +49,8 @@ export function ProjectCard({ project, onClick }: ProjectCardProps): React.React
               )}
               <Typography
                 variant="subtitle2"
-                sx={{ color: '#cdd6f4', fontWeight: 600, noWrap: true }}
+                noWrap
+                sx={{ color: '#cdd6f4', fontWeight: 600 }}
               >
                 {project.name}
               </Typography>

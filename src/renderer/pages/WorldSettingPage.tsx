@@ -30,7 +30,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { useWorldSettingStore } from '../stores/useWorldSettingStore';
 import { useAppStore } from '../stores/useAppStore';
 import { WORLD_SETTING_CATEGORIES } from '../utils/constants';
-import type { WorldSetting, CreateWorldSettingDTO, UpdateWorldSettingDTO } from '../../shared/types';
+import type { WorldCategory, WorldSetting, CreateWorldSettingDTO, UpdateWorldSettingDTO } from '../../shared/types';
 
 export function WorldSettingPage(): React.ReactElement {
   const { projectId } = useParams<{ projectId: string }>();
@@ -44,7 +44,7 @@ export function WorldSettingPage(): React.ReactElement {
 
   // 表单字段
   const [formName, setFormName] = useState('');
-  const [formCategory, setFormCategory] = useState('other');
+  const [formCategory, setFormCategory] = useState<WorldCategory>('other');
   const [formContent, setFormContent] = useState('');
   const [formParentId, setFormParentId] = useState<string | null>(null);
 
@@ -252,7 +252,7 @@ export function WorldSettingPage(): React.ReactElement {
               <Select
                 value={formCategory}
                 label="分类"
-                onChange={(e) => setFormCategory(e.target.value)}
+                onChange={(e) => setFormCategory(e.target.value as WorldCategory)}
               >
                 {WORLD_SETTING_CATEGORIES.map((cat) => (
                   <MenuItem key={cat.value} value={cat.value}>
