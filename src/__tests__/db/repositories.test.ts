@@ -1,17 +1,49 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import BetterSqlite3 from 'better-sqlite3';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
-// We need to test repositories in isolation with an in-memory DB.
-// The Repository classes use DatabaseConnection singleton, so we can't easily
-// inject an :memory: DB. Instead, we test the SQL schema and queries directly.
+// These SQL-level tests exercise the repository schema without touching the
+// app's singleton DatabaseConnection. In local dev the installed
+// better-sqlite3 binary may be rebuilt for Electron instead of Node, so probe
+// the constructor before registering the suites.
 
-let db: BetterSqlite3.Database;
+type DatabaseModule = typeof import('better-sqlite3');
+type Database = import('better-sqlite3').Database;
+
+let BetterSqlite3: DatabaseModule | null = null;
+let sqliteLoadError: unknown;
+let db: Database | null = null;
+
+try {
+  BetterSqlite3 = require('better-sqlite3') as DatabaseModule;
+  const probe = new BetterSqlite3(':memory:');
+  probe.close();
+} catch (error) {
+  BetterSqlite3 = null;
+  sqliteLoadError = error;
+}
+
+const describeSql = BetterSqlite3 ? describe : describe.skip;
+
+if (sqliteLoadError) {
+  console.warn(
+    `Skipping repository SQL tests: better-sqlite3 native binding cannot run in this Node runtime. ${
+      sqliteLoadError instanceof Error ? sqliteLoadError.message : String(sqliteLoadError)
+    }`,
+  );
+}
+
+function getDb(): Database {
+  if (!db) {
+    throw new Error('Test database was not initialized.');
+  }
+  return db;
+}
 
 beforeAll(() => {
+  if (!BetterSqlite3) return;
+
   db = new BetterSqlite3(':memory:');
   db.pragma('foreign_keys = ON');
 
-  // Apply schema from migrations
   db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
@@ -30,7 +62,7 @@ beforeAll(() => {
       plain_text TEXT NOT NULL DEFAULT '',
       word_count INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'writing', 'completed')),
-      "order" INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
@@ -58,7 +90,7 @@ beforeAll(() => {
       type TEXT NOT NULL DEFAULT 'chapter' CHECK(type IN ('volume', 'chapter')),
       parent_id TEXT,
       chapter_id TEXT,
-      "order" INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       note TEXT NOT NULL DEFAULT '',
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
@@ -66,237 +98,279 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  db.close();
+  db?.close();
+  db = null;
 });
 
-describe('Project Repository (SQL tests)', () => {
+describeSql('Project Repository (SQL tests)', () => {
   beforeEach(() => {
-    db.exec('DELETE FROM projects');
+    getDb().exec('DELETE FROM projects');
   });
 
-  it('insert project', () => {
+  it('inserts a project', () => {
+    const database = getDb();
     const id = 'proj-001';
     const now = new Date().toISOString();
-    db.prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
-      .run(id, '测试项目', 'novel', 4100, now, now);
 
-    const row: any = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
-    expect(row.name).toBe('测试项目');
+    database
+      .prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      .run(id, 'Test Project', 'novel', 4100, now, now);
+
+    const row = database.prepare('SELECT * FROM projects WHERE id = ?').get(id) as any;
+    expect(row.name).toBe('Test Project');
     expect(row.type).toBe('novel');
     expect(row.daily_goal).toBe(4100);
   });
 
-  it('list projects ordered by updated_at DESC', () => {
+  it('lists projects ordered by updated_at descending', () => {
+    const database = getDb();
     const now = new Date().toISOString();
-    db.prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
-      .run('a', 'A项目', 'novel', 3000, now, '2024-01-01');
-    db.prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
-      .run('b', 'B项目', 'script', 500, now, '2024-06-01');
 
-    const rows: any[] = db.prepare('SELECT * FROM projects ORDER BY updated_at DESC').all();
-    expect(rows[0].name).toBe('B项目');
-    expect(rows[1].name).toBe('A项目');
+    database
+      .prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      .run('a', 'Project A', 'novel', 3000, now, '2024-01-01');
+    database
+      .prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      .run('b', 'Project B', 'script', 500, now, '2024-06-01');
+
+    const rows = database.prepare('SELECT * FROM projects ORDER BY updated_at DESC').all() as any[];
+    expect(rows[0].name).toBe('Project B');
+    expect(rows[1].name).toBe('Project A');
   });
 
-  it('update project name', () => {
+  it('updates a project name', () => {
+    const database = getDb();
     const id = 'proj-002';
     const now = new Date().toISOString();
-    db.prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
-      .run(id, '旧名', 'novel', 2000, now, now);
 
-    db.prepare('UPDATE projects SET name = ?, updated_at = ? WHERE id = ?')
-      .run('新名', new Date().toISOString(), id);
+    database
+      .prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      .run(id, 'Old Name', 'novel', 2000, now, now);
+    database.prepare('UPDATE projects SET name = ?, updated_at = ? WHERE id = ?').run('New Name', now, id);
 
-    const row: any = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
-    expect(row.name).toBe('新名');
+    const row = database.prepare('SELECT * FROM projects WHERE id = ?').get(id) as any;
+    expect(row.name).toBe('New Name');
   });
 
-  it('delete project cascades', () => {
+  it('deletes project children through cascade', () => {
+    const database = getDb();
     const projId = 'proj-cascade';
     const now = new Date().toISOString();
-    db.prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
-      .run(projId, '测试', 'novel', 1000, now, now);
-    db.prepare('INSERT INTO chapters (id, project_id, title, content, created_at, updated_at) VALUES (?,?,?,?,?,?)')
-      .run('ch-1', projId, '章节', '{}', now, now);
 
-    db.prepare('DELETE FROM projects WHERE id = ?').run(projId);
+    database
+      .prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      .run(projId, 'Cascade Project', 'novel', 1000, now, now);
+    database
+      .prepare('INSERT INTO chapters (id, project_id, title, content, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      .run('ch-1', projId, 'Chapter 1', '{}', now, now);
 
-    const projects = db.prepare('SELECT * FROM projects WHERE id = ?').all(projId);
-    expect(projects).toHaveLength(0);
+    database.prepare('DELETE FROM projects WHERE id = ?').run(projId);
 
-    const chapters = db.prepare('SELECT * FROM chapters WHERE project_id = ?').all(projId);
-    expect(chapters).toHaveLength(0); // CASCADE delete
+    expect(database.prepare('SELECT * FROM projects WHERE id = ?').all(projId)).toHaveLength(0);
+    expect(database.prepare('SELECT * FROM chapters WHERE project_id = ?').all(projId)).toHaveLength(0);
   });
 
-  it('type CHECK constraint rejects invalid type', () => {
+  it('rejects an invalid project type', () => {
     expect(() => {
-      db.prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      getDb()
+        .prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
         .run('bad', 'Bad', 'invalid', 1000, 'now', 'now');
     }).toThrow();
   });
 });
 
-describe('Chapter Repository (SQL tests)', () => {
+describeSql('Chapter Repository (SQL tests)', () => {
   let projId: string;
   const now = new Date().toISOString();
 
   beforeEach(() => {
-    db.exec('DELETE FROM chapters');
-    db.exec('DELETE FROM projects');
+    const database = getDb();
+    database.exec('DELETE FROM chapters');
+    database.exec('DELETE FROM projects');
     projId = 'proj-ch';
-    db.prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
-      .run(projId, '章节测试', 'novel', 4100, now, now);
+    database
+      .prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      .run(projId, 'Chapter Project', 'novel', 4100, now, now);
   });
 
-  it('insert and retrieve chapter', () => {
-    db.prepare('INSERT INTO chapters (id, project_id, title, content, plain_text, word_count, status, sort_order, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
-      .run('ch-1', projId, '第一章', '{"type":"doc"}', '测试内容', 4, 'draft', 0, now, now);
+  it('inserts and retrieves a chapter', () => {
+    const database = getDb();
 
-    const row: any = db.prepare('SELECT * FROM chapters WHERE id = ?').get('ch-1');
-    expect(row.title).toBe('第一章');
-    expect(row.plain_text).toBe('测试内容');
-    expect(row.word_count).toBe(4);
+    database
+      .prepare(
+        'INSERT INTO chapters (id, project_id, title, content, plain_text, word_count, status, sort_order, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      )
+      .run('ch-1', projId, 'Chapter 1', '{"type":"doc"}', 'Chapter text', 12, 'draft', 0, now, now);
+
+    const row = database.prepare('SELECT * FROM chapters WHERE id = ?').get('ch-1') as any;
+    expect(row.title).toBe('Chapter 1');
+    expect(row.plain_text).toBe('Chapter text');
+    expect(row.word_count).toBe(12);
     expect(row.status).toBe('draft');
   });
 
-  it('list chapters by project ordered by sort_order', () => {
-    db.prepare('INSERT INTO chapters (id, project_id, title, content, created_at, updated_at, sort_order) VALUES (?,?,?,?,?,?,?)')
-      .run('c2', projId, '第二章', '{}', now, now, 1);
-    db.prepare('INSERT INTO chapters (id, project_id, title, content, created_at, updated_at, sort_order) VALUES (?,?,?,?,?,?,?)')
-      .run('c1', projId, '第一章', '{}', now, now, 0);
+  it('lists chapters by project ordered by sort_order', () => {
+    const database = getDb();
 
-    const rows: any[] = db.prepare('SELECT * FROM chapters WHERE project_id = ? ORDER BY sort_order').all(projId);
-    expect(rows).toHaveLength(2);
-    expect(rows[0].title).toBe('第一章');
-    expect(rows[1].title).toBe('第二章');
+    database
+      .prepare('INSERT INTO chapters (id, project_id, title, content, created_at, updated_at, sort_order) VALUES (?,?,?,?,?,?,?)')
+      .run('c2', projId, 'Chapter 2', '{}', now, now, 1);
+    database
+      .prepare('INSERT INTO chapters (id, project_id, title, content, created_at, updated_at, sort_order) VALUES (?,?,?,?,?,?,?)')
+      .run('c1', projId, 'Chapter 1', '{}', now, now, 0);
+
+    const rows = database.prepare('SELECT * FROM chapters WHERE project_id = ? ORDER BY sort_order').all(projId) as any[];
+    expect(rows.map((row) => row.title)).toEqual(['Chapter 1', 'Chapter 2']);
   });
 
-  it('reorder chapters', () => {
-    db.prepare('INSERT INTO chapters (id, project_id, title, content, created_at, updated_at, sort_order) VALUES (?,?,?,?,?,?,?)')
+  it('reorders chapters', () => {
+    const database = getDb();
+
+    database
+      .prepare('INSERT INTO chapters (id, project_id, title, content, created_at, updated_at, sort_order) VALUES (?,?,?,?,?,?,?)')
       .run('ca', projId, 'A', '{}', now, now, 0);
-    db.prepare('INSERT INTO chapters (id, project_id, title, content, created_at, updated_at, sort_order) VALUES (?,?,?,?,?,?,?)')
+    database
+      .prepare('INSERT INTO chapters (id, project_id, title, content, created_at, updated_at, sort_order) VALUES (?,?,?,?,?,?,?)')
       .run('cb', projId, 'B', '{}', now, now, 1);
 
-    // Reverse order
-    db.prepare('UPDATE chapters SET sort_order = 10 WHERE id = ? AND project_id = ?').run('ca', projId);
-    db.prepare('UPDATE chapters SET sort_order = 0 WHERE id = ? AND project_id = ?').run('cb', projId);
+    database.prepare('UPDATE chapters SET sort_order = 10 WHERE id = ? AND project_id = ?').run('ca', projId);
+    database.prepare('UPDATE chapters SET sort_order = 0 WHERE id = ? AND project_id = ?').run('cb', projId);
 
-    const rows: any[] = db.prepare('SELECT * FROM chapters WHERE project_id = ? ORDER BY sort_order').all(projId);
-    expect(rows[0].id).toBe('cb');
-    expect(rows[1].id).toBe('ca');
+    const rows = database.prepare('SELECT * FROM chapters WHERE project_id = ? ORDER BY sort_order').all(projId) as any[];
+    expect(rows.map((row) => row.id)).toEqual(['cb', 'ca']);
   });
 
-  it('status CHECK rejects invalid status', () => {
+  it('rejects an invalid chapter status', () => {
     expect(() => {
-      db.prepare('INSERT INTO chapters (id, project_id, title, content, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)')
+      getDb()
+        .prepare('INSERT INTO chapters (id, project_id, title, content, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)')
         .run('bad', projId, 'Bad', '{}', 'invalid', now, now);
     }).toThrow();
   });
 });
 
-describe('Character Repository (SQL tests)', () => {
+describeSql('Character Repository (SQL tests)', () => {
   let projId: string;
   const now = new Date().toISOString();
 
   beforeEach(() => {
-    db.exec('DELETE FROM characters');
-    db.exec('DELETE FROM projects');
+    const database = getDb();
+    database.exec('DELETE FROM characters');
+    database.exec('DELETE FROM projects');
     projId = 'proj-char';
-    db.prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
-      .run(projId, '角色测试', 'novel', 4100, now, now);
+    database
+      .prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      .run(projId, 'Character Project', 'novel', 4100, now, now);
   });
 
-  it('insert character', () => {
-    db.prepare('INSERT INTO characters (id, project_id, name, aliases, appearance, personality, background, tags, avatar, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-      .run('char-1', projId, '林渊', '["小林","剑客"]', '英俊潇洒', '冷静果断', '出身剑阁', '["主角","剑修"]', null, now, now);
+  it('inserts a character', () => {
+    const database = getDb();
 
-    const row: any = db.prepare('SELECT * FROM characters WHERE id = ?').get('char-1');
-    expect(row.name).toBe('林渊');
-    expect(row.personality).toBe('冷静果断');
+    database
+      .prepare(
+        'INSERT INTO characters (id, project_id, name, aliases, appearance, personality, background, tags, avatar, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+      )
+      .run('char-1', projId, 'Lin Shen', '["Lin"]', 'Tall', 'Calm', 'Wanderer', '["lead"]', null, now, now);
+
+    const row = database.prepare('SELECT * FROM characters WHERE id = ?').get('char-1') as any;
+    expect(row.name).toBe('Lin Shen');
+    expect(row.personality).toBe('Calm');
   });
 
-  it('list characters by project ordered by name', () => {
-    db.prepare('INSERT INTO characters (id, project_id, name, created_at, updated_at) VALUES (?,?,?,?,?)')
-      .run('c1', projId, '张三', now, now);
-    db.prepare('INSERT INTO characters (id, project_id, name, created_at, updated_at) VALUES (?,?,?,?,?)')
-      .run('c2', projId, '李四', now, now);
-    db.prepare('INSERT INTO characters (id, project_id, name, created_at, updated_at) VALUES (?,?,?,?,?)')
-      .run('c3', projId, '王五', now, now);
+  it('lists characters by project ordered by name', () => {
+    const database = getDb();
 
-    const rows: any[] = db.prepare('SELECT * FROM characters WHERE project_id = ? ORDER BY name').all(projId);
-    expect(rows[0].name).toBe('张三');
-    expect(rows[1].name).toBe('李四');
-    expect(rows[2].name).toBe('王五');
+    database
+      .prepare('INSERT INTO characters (id, project_id, name, created_at, updated_at) VALUES (?,?,?,?,?)')
+      .run('c1', projId, 'Alice', now, now);
+    database
+      .prepare('INSERT INTO characters (id, project_id, name, created_at, updated_at) VALUES (?,?,?,?,?)')
+      .run('c2', projId, 'Bob', now, now);
+
+    const rows = database.prepare('SELECT * FROM characters WHERE project_id = ? ORDER BY name').all(projId) as any[];
+    expect(rows.map((row) => row.name)).toEqual(['Alice', 'Bob']);
   });
 
-  it('update character', () => {
-    db.prepare('INSERT INTO characters (id, project_id, name, created_at, updated_at) VALUES (?,?,?,?,?)')
-      .run('char-u', projId, '原名称', now, now);
+  it('updates a character', () => {
+    const database = getDb();
 
-    db.prepare('UPDATE characters SET name = ?, updated_at = ? WHERE id = ?')
-      .run('新名称', new Date().toISOString(), 'char-u');
+    database
+      .prepare('INSERT INTO characters (id, project_id, name, created_at, updated_at) VALUES (?,?,?,?,?)')
+      .run('char-u', projId, 'Old Character', now, now);
+    database.prepare('UPDATE characters SET name = ?, updated_at = ? WHERE id = ?').run('New Character', now, 'char-u');
 
-    const row: any = db.prepare('SELECT * FROM characters WHERE id = ?').get('char-u');
-    expect(row.name).toBe('新名称');
+    const row = database.prepare('SELECT * FROM characters WHERE id = ?').get('char-u') as any;
+    expect(row.name).toBe('New Character');
   });
 });
 
-describe('Outline Repository (SQL tests)', () => {
+describeSql('Outline Repository (SQL tests)', () => {
   let projId: string;
   const now = new Date().toISOString();
 
   beforeEach(() => {
-    db.exec('DELETE FROM outlines');
-    db.exec('DELETE FROM projects');
+    const database = getDb();
+    database.exec('DELETE FROM outlines');
+    database.exec('DELETE FROM projects');
     projId = 'proj-out';
-    db.prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
-      .run(projId, '大纲测试', 'novel', 4100, now, now);
+    database
+      .prepare('INSERT INTO projects (id, name, type, daily_goal, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      .run(projId, 'Outline Project', 'novel', 4100, now, now);
   });
 
-  it('insert outline node', () => {
-    db.prepare('INSERT INTO outlines (id, project_id, title, type, parent_id, chapter_id, sort_order, note) VALUES (?,?,?,?,?,?,?,?)')
-      .run('out-1', projId, '第一卷', 'volume', null, null, 0, '开幕卷');
+  it('inserts an outline node', () => {
+    const database = getDb();
 
-    const row: any = db.prepare('SELECT * FROM outlines WHERE id = ?').get('out-1');
-    expect(row.title).toBe('第一卷');
+    database
+      .prepare('INSERT INTO outlines (id, project_id, title, type, parent_id, chapter_id, sort_order, note) VALUES (?,?,?,?,?,?,?,?)')
+      .run('out-1', projId, 'Volume 1', 'volume', null, null, 0, 'Opening volume');
+
+    const row = database.prepare('SELECT * FROM outlines WHERE id = ?').get('out-1') as any;
+    expect(row.title).toBe('Volume 1');
     expect(row.type).toBe('volume');
   });
 
-  it('hierarchical outline structure', () => {
-    // Insert volume
-    db.prepare('INSERT INTO outlines (id, project_id, title, type, parent_id, chapter_id, sort_order, note) VALUES (?,?,?,?,?,?,?,?)')
-      .run('v1', projId, '第一卷', 'volume', null, null, 0, '');
-    // Insert chapters under volume
-    db.prepare('INSERT INTO outlines (id, project_id, title, type, parent_id, chapter_id, sort_order, note) VALUES (?,?,?,?,?,?,?,?)')
-      .run('c1', projId, '第1章', 'chapter', 'v1', null, 0, '');
-    db.prepare('INSERT INTO outlines (id, project_id, title, type, parent_id, chapter_id, sort_order, note) VALUES (?,?,?,?,?,?,?,?)')
-      .run('c2', projId, '第2章', 'chapter', 'v1', null, 1, '');
+  it('keeps hierarchical outline structure', () => {
+    const database = getDb();
 
-    const all: any[] = db.prepare('SELECT * FROM outlines WHERE project_id = ? ORDER BY sort_order').all(projId);
+    database
+      .prepare('INSERT INTO outlines (id, project_id, title, type, parent_id, chapter_id, sort_order, note) VALUES (?,?,?,?,?,?,?,?)')
+      .run('v1', projId, 'Volume 1', 'volume', null, null, 0, '');
+    database
+      .prepare('INSERT INTO outlines (id, project_id, title, type, parent_id, chapter_id, sort_order, note) VALUES (?,?,?,?,?,?,?,?)')
+      .run('c1', projId, 'Chapter 1', 'chapter', 'v1', null, 0, '');
+    database
+      .prepare('INSERT INTO outlines (id, project_id, title, type, parent_id, chapter_id, sort_order, note) VALUES (?,?,?,?,?,?,?,?)')
+      .run('c2', projId, 'Chapter 2', 'chapter', 'v1', null, 1, '');
+
+    const all = database.prepare('SELECT * FROM outlines WHERE project_id = ? ORDER BY sort_order').all(projId) as any[];
+    const children = all.filter((row) => row.parent_id === 'v1');
+
     expect(all).toHaveLength(3);
-
-    const children = all.filter((r: any) => r.parent_id === 'v1');
-    expect(children).toHaveLength(2);
-    expect(children[0].title).toBe('第1章');
+    expect(children.map((row) => row.title)).toEqual(['Chapter 1', 'Chapter 2']);
   });
 
-  it('reorder outline items', () => {
-    db.prepare('INSERT INTO outlines (id, project_id, title, type, sort_order) VALUES (?,?,?,?,?)')
+  it('reorders outline items', () => {
+    const database = getDb();
+
+    database
+      .prepare('INSERT INTO outlines (id, project_id, title, type, sort_order) VALUES (?,?,?,?,?)')
       .run('a', projId, 'A', 'chapter', 0);
-    db.prepare('INSERT INTO outlines (id, project_id, title, type, sort_order) VALUES (?,?,?,?,?)')
+    database
+      .prepare('INSERT INTO outlines (id, project_id, title, type, sort_order) VALUES (?,?,?,?,?)')
       .run('b', projId, 'B', 'chapter', 1);
 
-    db.prepare('UPDATE outlines SET sort_order = 10 WHERE id = ?').run('a');
-    db.prepare('UPDATE outlines SET sort_order = 0 WHERE id = ?').run('b');
+    database.prepare('UPDATE outlines SET sort_order = 10 WHERE id = ?').run('a');
+    database.prepare('UPDATE outlines SET sort_order = 0 WHERE id = ?').run('b');
 
-    const rows: any[] = db.prepare('SELECT * FROM outlines WHERE project_id = ? ORDER BY sort_order').all(projId);
-    expect(rows[0].id).toBe('b');
-    expect(rows[1].id).toBe('a');
+    const rows = database.prepare('SELECT * FROM outlines WHERE project_id = ? ORDER BY sort_order').all(projId) as any[];
+    expect(rows.map((row) => row.id)).toEqual(['b', 'a']);
   });
 
-  it('type CHECK rejects invalid', () => {
+  it('rejects an invalid outline type', () => {
     expect(() => {
-      db.prepare('INSERT INTO outlines (id, project_id, title, type, sort_order) VALUES (?,?,?,?,?)')
+      getDb()
+        .prepare('INSERT INTO outlines (id, project_id, title, type, sort_order) VALUES (?,?,?,?,?)')
         .run('bad', projId, 'Bad', 'unknown', 0);
     }).toThrow();
   });
