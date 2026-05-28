@@ -1,14 +1,10 @@
-/**
- * 项目卡片组件 (P1 Stub)
- * 骨架实现 — 展示项目基本信息，完整仪表盘统计留待 P1
- */
 import React from 'react';
 import {
   Card,
   CardActionArea,
   CardContent,
-  Typography,
   Chip,
+  Typography,
 } from '@mui/material';
 import {
   MenuBook as NovelIcon,
@@ -21,6 +17,15 @@ interface ProjectCardProps {
   project: Project;
   onClick: () => void;
 }
+
+const text = {
+  createdAt: '\u521b\u5efa\u65f6\u95f4',
+  dailyGoal: '\u65e5\u66f4\u76ee\u6807',
+  novel: '\u5c0f\u8bf4',
+  script: '\u5267\u672c',
+  updatedAt: '\u6700\u8fd1\u66f4\u65b0',
+  words: '\u5b57',
+};
 
 export function ProjectCard({ project, onClick }: ProjectCardProps): React.ReactElement {
   const isNovel = project.type === 'novel';
@@ -41,7 +46,7 @@ export function ProjectCard({ project, onClick }: ProjectCardProps): React.React
       <CardActionArea onClick={onClick}>
         <CardContent>
           <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               {isNovel ? (
                 <NovelIcon sx={{ color: '#7c3aed', fontSize: 20 }} />
               ) : (
@@ -56,7 +61,7 @@ export function ProjectCard({ project, onClick }: ProjectCardProps): React.React
               </Typography>
             </div>
             <Chip
-              label={isNovel ? '小说' : '剧本'}
+              label={isNovel ? text.novel : text.script}
               size="small"
               sx={{
                 fontSize: 10,
@@ -69,26 +74,24 @@ export function ProjectCard({ project, onClick }: ProjectCardProps): React.React
 
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
-              <span className="text-[#6c7086]">日更目标</span>
+              <span className="text-[#6c7086]">{text.dailyGoal}</span>
               <span className="text-[#a0a0b0] font-mono">
-                {project.dailyGoal.toLocaleString()} 字
+                {project.dailyGoal.toLocaleString()} {text.words}
               </span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-[#6c7086]">最近更新</span>
+              <span className="text-[#6c7086]">{text.updatedAt}</span>
               <span className="text-[#a0a0b0]">
                 {formatDate(project.updatedAt, 'MM-dd HH:mm')}
               </span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-[#6c7086]">创建时间</span>
+              <span className="text-[#6c7086]">{text.createdAt}</span>
               <span className="text-[#a0a0b0]">
                 {formatDate(project.createdAt, 'yyyy-MM-dd')}
               </span>
             </div>
           </div>
-
-          {/* P1 TODO: 添加总字数、打卡统计、收益汇总等 */}
         </CardContent>
       </CardActionArea>
     </Card>
