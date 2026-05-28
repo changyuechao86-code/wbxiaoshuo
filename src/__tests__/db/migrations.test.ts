@@ -36,6 +36,20 @@ describe('database migration source', () => {
   });
 
   it('does not include known mojibake markers', () => {
-    expect(source).not.toMatch(/[鍒鏀璁绱琛椤圭洰绔犺妭瑙壊澶翰鏃柊悕绉娴嬭瘯閿鐢妗潰搴旂敤]/);
+    const markers = [
+      '\u9345',
+      '\u95b8',
+      '\u9422',
+      '\u7d31',
+      '\u93c9',
+      '\u6086',
+      '\u6b91',
+      '\u6391',
+      '\u66e0',
+    ];
+
+    for (const marker of markers) {
+      expect(source).not.toContain(marker);
+    }
   });
 });
