@@ -7,6 +7,13 @@ import { logger } from '../utils/logger';
 const BACKUP_DIR_NAME = 'backups';
 const MAX_BACKUPS = 10;
 
+const text = {
+  backupMissingSource: '\u6570\u636e\u5e93\u6587\u4ef6\u4e0d\u5b58\u5728\uff0c\u65e0\u6cd5\u5907\u4efd\u3002',
+  importMissingSource: '\u5bfc\u5165\u6587\u4ef6\u4e0d\u5b58\u5728\u3002',
+  missingDatabase: '\u6570\u636e\u5e93\u6587\u4ef6\u4e0d\u5b58\u5728\u3002',
+  restoreMissingSource: '\u5907\u4efd\u6587\u4ef6\u4e0d\u5b58\u5728\u3002',
+};
+
 function getBackupDir(): string {
   return path.join(app.getPath('userData'), BACKUP_DIR_NAME);
 }
@@ -24,7 +31,7 @@ export async function backupDatabase(): Promise<string> {
   const destDir = ensureBackupDir();
 
   if (!fs.existsSync(srcPath)) {
-    throw new Error('Database file does not exist, so it cannot be backed up.');
+    throw new Error(text.backupMissingSource);
   }
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -43,7 +50,7 @@ export async function restoreDatabase(sourcePath: string): Promise<void> {
   const destPath = getDbPath();
 
   if (!fs.existsSync(sourcePath)) {
-    throw new Error('Backup file does not exist.');
+    throw new Error(text.restoreMissingSource);
   }
 
   const preRestoreBackup = path.join(
@@ -104,7 +111,7 @@ function cleanupOldBackups(dir: string): void {
 export async function exportDatabase(destPath: string): Promise<void> {
   const srcPath = getDbPath();
   if (!fs.existsSync(srcPath)) {
-    throw new Error('Database file does not exist.');
+    throw new Error(text.missingDatabase);
   }
 
   fs.copyFileSync(srcPath, destPath);
@@ -113,7 +120,7 @@ export async function exportDatabase(destPath: string): Promise<void> {
 
 export async function importDatabase(sourcePath: string): Promise<void> {
   if (!fs.existsSync(sourcePath)) {
-    throw new Error('Import file does not exist.');
+    throw new Error(text.importMissingSource);
   }
 
   await restoreDatabase(sourcePath);

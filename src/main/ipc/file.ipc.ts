@@ -6,12 +6,29 @@ import { exportChapters } from '../services/export.service';
 import { getUserDataPath } from '../utils/paths';
 import { logger } from '../utils/logger';
 
-const DB_FILTERS = [{ name: 'SQLite database', extensions: ['db'] }];
+const text = {
+  backupFailed: '\u5907\u4efd\u5931\u8d25',
+  chooseBackup: '\u9009\u62e9\u5907\u4efd\u6587\u4ef6',
+  chooseImport: '\u9009\u62e9\u8981\u5bfc\u5165\u7684\u6570\u636e\u5e93',
+  databaseFilter: '\u0053\u0051\u004c\u0069\u0074\u0065 \u6570\u636e\u5e93',
+  exportChapters: '\u5bfc\u51fa\u7ae0\u8282',
+  exportDatabase: '\u5bfc\u51fa\u6570\u636e\u5e93',
+  exportDatabaseFailed: '\u5bfc\u51fa\u6570\u636e\u5e93\u5931\u8d25',
+  importFailed: '\u5bfc\u5165\u5931\u8d25',
+  restoreFailed: '\u6062\u590d\u5931\u8d25',
+  textFilter: '\u6587\u672c\u6587\u4ef6',
+  markdownFilter: '\u004d\u0061\u0072\u006b\u0064\u006f\u0077\u006e \u6587\u4ef6',
+  htmlFilter: '\u0048\u0054\u004d\u004c \u6587\u4ef6',
+  jimengFilter: '\u5373\u68a6\u63d0\u793a\u8bcd',
+  chapterExportFailed: '\u7ae0\u8282\u5bfc\u51fa\u5931\u8d25',
+};
+
+const DB_FILTERS = [{ name: text.databaseFilter, extensions: ['db'] }];
 const EXPORT_FILTERS: Record<ExportFormat, Electron.FileFilter> = {
-  txt: { name: 'Text file', extensions: ['txt'] },
-  markdown: { name: 'Markdown file', extensions: ['md'] },
-  html: { name: 'HTML file', extensions: ['html'] },
-  jimeng: { name: 'Jimeng prompts', extensions: ['txt'] },
+  txt: { name: text.textFilter, extensions: ['txt'] },
+  markdown: { name: text.markdownFilter, extensions: ['md'] },
+  html: { name: text.htmlFilter, extensions: ['html'] },
+  jimeng: { name: text.jimengFilter, extensions: ['txt'] },
 };
 
 const EXPORT_EXTENSIONS: Record<ExportFormat, string> = {
@@ -21,13 +38,18 @@ const EXPORT_EXTENSIONS: Record<ExportFormat, string> = {
   jimeng: 'txt',
 };
 
+function buildUserError(prefix: string, err: any): Error {
+  const detail = err?.message ? `: ${err.message}` : '';
+  return new Error(`${prefix}${detail}`);
+}
+
 export function registerFileHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.FILE_BACKUP, async () => {
     try {
       return await backupDatabase();
     } catch (err: any) {
       logger.error(`Backup failed: ${err.message}`);
-      throw new Error(`Backup failed: ${err.message}`);
+      throw buildUserError(text.backupFailed, err);
     }
   });
 
@@ -36,7 +58,7 @@ export function registerFileHandlers(): void {
       let sourcePath = filePath;
       if (!sourcePath) {
         const result = await dialog.showOpenDialog({
-          title: 'Choose backup file',
+          title: text.chooseBackup,
           filters: DB_FILTERS,
           properties: ['openFile'],
         });
@@ -49,14 +71,14 @@ export function registerFileHandlers(): void {
       return true;
     } catch (err: any) {
       logger.error(`Restore failed: ${err.message}`);
-      throw new Error(`Restore failed: ${err.message}`);
+      throw buildUserError(text.restoreFailed, err);
     }
   });
 
   ipcMain.handle(IPC_CHANNELS.FILE_EXPORT, async () => {
     try {
       const result = await dialog.showSaveDialog({
-        title: 'Export database',
+        title: text.exportDatabase,
         defaultPath: `novel-studio-export-${new Date().toISOString().slice(0, 10)}.db`,
         filters: DB_FILTERS,
       });
@@ -68,7 +90,7 @@ export function registerFileHandlers(): void {
       return result.filePath;
     } catch (err: any) {
       logger.error(`Export failed: ${err.message}`);
-      throw new Error(`Export failed: ${err.message}`);
+      throw buildUserError(text.exportDatabaseFailed, err);
     }
   });
 
@@ -77,7 +99,7 @@ export function registerFileHandlers(): void {
       let sourcePath = filePath;
       if (!sourcePath) {
         const result = await dialog.showOpenDialog({
-          title: 'Import database',
+          title: text.chooseImport,
           filters: DB_FILTERS,
           properties: ['openFile'],
         });
@@ -90,7 +112,7 @@ export function registerFileHandlers(): void {
       return true;
     } catch (err: any) {
       logger.error(`Import failed: ${err.message}`);
-      throw new Error(`Import failed: ${err.message}`);
+      throw buildUserError(text.importFailed, err);
     }
   });
 
@@ -98,7 +120,7 @@ export function registerFileHandlers(): void {
     try {
       const extension = EXPORT_EXTENSIONS[request.format];
       const result = await dialog.showSaveDialog({
-        title: 'Export chapters',
+        title: text.exportChapters,
         defaultPath: `novel-chapters-${new Date().toISOString().slice(0, 10)}.${extension}`,
         filters: [EXPORT_FILTERS[request.format]],
       });
@@ -109,7 +131,7 @@ export function registerFileHandlers(): void {
       return await exportChapters({ ...request, outputPath: result.filePath });
     } catch (err: any) {
       logger.error(`Chapter export failed: ${err.message}`);
-      throw new Error(`Chapter export failed: ${err.message}`);
+      throw buildUserError(text.chapterExportFailed, err);
     }
   });
 
