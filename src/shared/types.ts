@@ -6,6 +6,7 @@ export type WorldCategory = 'geography' | 'faction' | 'history' | 'magic' | 'cul
 export type RelationType = 'friend' | 'enemy' | 'family' | 'lover' | 'master_student' | 'colleague' | 'other';
 export type AIAction = 'continue' | 'polish' | 'outline' | 'dialogue';
 export type AIProvider = 'deepseek';
+export type ExportFormat = 'txt' | 'markdown' | 'html' | 'jimeng';
 
 export interface Project {
   id: string;
@@ -152,6 +153,12 @@ export interface AIResponse {
 export interface AIStreamChunk {
   content: string;
   done: boolean;
+}
+
+export interface ChapterExportRequest {
+  format: ExportFormat;
+  projectId: string;
+  chapterIds?: string[];
 }
 
 export type CreateProjectDTO = Omit<Project, 'id' | 'createdAt' | 'updatedAt'>;

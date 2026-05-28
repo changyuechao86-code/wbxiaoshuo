@@ -1,8 +1,14 @@
-/**
- * 章节状态 Store
- */
 import { create } from 'zustand';
 import type { Chapter, CreateChapterDTO, UpdateChapterDTO } from '../../shared/types';
+
+const text = {
+  createFailed: '\u521b\u5efa\u7ae0\u8282\u5931\u8d25',
+  deleteFailed: '\u5220\u9664\u7ae0\u8282\u5931\u8d25',
+  loadFailed: '\u52a0\u8f7d\u7ae0\u8282\u5931\u8d25',
+  loadListFailed: '\u52a0\u8f7d\u7ae0\u8282\u5217\u8868\u5931\u8d25',
+  reorderFailed: '\u6392\u5e8f\u7ae0\u8282\u5931\u8d25',
+  saveFailed: '\u4fdd\u5b58\u7ae0\u8282\u5931\u8d25',
+};
 
 interface ChapterState {
   chapters: Chapter[];
@@ -32,7 +38,7 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
       const chapters = await window.electronAPI.chapter.list(projectId);
       set({ chapters, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message || '加载章节列表失败', isLoading: false });
+      set({ error: err.message || text.loadListFailed, isLoading: false });
     }
   },
 
@@ -42,7 +48,7 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
       const chapter = await window.electronAPI.chapter.get(id);
       set({ currentChapter: chapter, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message || '加载章节失败', isLoading: false });
+      set({ error: err.message || text.loadFailed, isLoading: false });
     }
   },
 
@@ -53,7 +59,7 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
       set((s) => ({ chapters: [...s.chapters, chapter] }));
       return chapter;
     } catch (err: any) {
-      set({ error: err.message || '创建章节失败' });
+      set({ error: err.message || text.createFailed });
       throw err;
     }
   },
@@ -63,11 +69,11 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
     try {
       const updated = await window.electronAPI.chapter.update(id, data);
       set((s) => ({
-        chapters: s.chapters.map((c) => c.id === id ? updated : c),
+        chapters: s.chapters.map((c) => (c.id === id ? updated : c)),
         currentChapter: s.currentChapter?.id === id ? updated : s.currentChapter,
       }));
     } catch (err: any) {
-      set({ error: err.message || '保存章节失败' });
+      set({ error: err.message || text.saveFailed });
       throw err;
     }
   },
@@ -81,7 +87,7 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
         currentChapter: s.currentChapter?.id === id ? null : s.currentChapter,
       }));
     } catch (err: any) {
-      set({ error: err.message || '删除章节失败' });
+      set({ error: err.message || text.deleteFailed });
       throw err;
     }
   },
@@ -90,10 +96,9 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
     set({ error: null });
     try {
       await window.electronAPI.chapter.reorder(projectId, ids);
-      // 重新加载以获取最新排序
       await get().loadChapters(projectId);
     } catch (err: any) {
-      set({ error: err.message || '排序章节失败' });
+      set({ error: err.message || text.reorderFailed });
       throw err;
     }
   },

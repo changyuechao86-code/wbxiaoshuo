@@ -17,6 +17,7 @@ import type {
   CreateForeshadowingDTO, UpdateForeshadowingDTO,
   CreateRevenueDTO,
   CreateStoryboardDTO, UpdateStoryboardDTO,
+  ChapterExportRequest,
 } from '../shared/types';
 
 /**
@@ -121,6 +122,7 @@ export interface ElectronAPI {
     restore(filePath?: string): Promise<boolean>;
     exportDb(): Promise<string>;
     importDb(filePath?: string): Promise<boolean>;
+    exportChapters(request: ChapterExportRequest): Promise<string>;
   };
 
   // App
@@ -264,6 +266,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     restore: createInvoker<boolean>(IPC_CHANNELS.FILE_RESTORE),
     exportDb: createInvoker<string>(IPC_CHANNELS.FILE_EXPORT),
     importDb: createInvoker<boolean>(IPC_CHANNELS.FILE_IMPORT),
+    exportChapters: createInvoker<string>(IPC_CHANNELS.CHAPTER_EXPORT),
   },
 
   app: {

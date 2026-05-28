@@ -3,8 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import type { Editor } from '@tiptap/react';
 import {
   Alert,
+  Button,
   FormControl,
   IconButton,
+  Menu,
   MenuItem,
   Select,
   Snackbar,
@@ -15,6 +17,7 @@ import {
   ArrowBack as BackIcon,
   AutoAwesome as AIIcon,
   Delete as DeleteIcon,
+  FileDownload as ExportIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
 import { AIAssistantPanel } from '../components/editor/AIAssistantPanel';
@@ -28,6 +31,7 @@ import { useCharacterStore } from '../stores/useCharacterStore';
 import { useEditorStore } from '../stores/useEditorStore';
 import { useAutoSave } from '../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import type { ExportFormat } from '../../shared/types';
 
 const EMPTY_DOC = '{"type":"doc","content":[{"type":"paragraph"}]}';
 
@@ -45,6 +49,14 @@ const text = {
   deleteMessagePrefix: '\u786e\u5b9a\u8981\u5220\u9664\u300c',
   deleteMessageSuffix: '\u300d\u5417\uff1f\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002',
   editorPlaceholder: '\u5f00\u59cb\u521b\u4f5c\u4f60\u7684\u6545\u4e8b...',
+  exportAsHtml: '\u5bfc\u51fa HTML',
+  exportAsJimeng: '\u5bfc\u51fa\u5373\u68a6\u63d0\u793a\u8bcd',
+  exportAsMarkdown: '\u5bfc\u51fa Markdown',
+  exportAsTxt: '\u5bfc\u51fa TXT',
+  exportCanceled: '\u5df2\u53d6\u6d88\u5bfc\u51fa',
+  exportChapters: '\u5bfc\u51fa',
+  exportFailed: '\u5bfc\u51fa\u5931\u8d25',
+  exportSuccess: '\u5bfc\u51fa\u6210\u529f',
   fallbackChapter: '\u6b64\u7ae0\u8282',
   newChapter: '\u65b0\u5efa\u7ae0\u8282 (Ctrl+N)',
   newChapterTitle: '\u65b0\u7ae0\u8282',
@@ -66,6 +78,7 @@ export function EditorPage(): React.ReactElement {
 
   const [chapterTitle, setChapterTitle] = useState('');
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+  const [exportMenuAnchor, setExportMenuAnchor] = useState<HTMLElement | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
@@ -183,6 +196,26 @@ export function EditorPage(): React.ReactElement {
     }
   };
 
+  const handleExport = async (format: ExportFormat): Promise<void> => {
+    if (!projectId) return;
+    setExportMenuAnchor(null);
+
+    try {
+      await saveCurrentDraft();
+      const outputPath = await window.electronAPI.file.exportChapters({
+        format,
+        projectId,
+      });
+      setSnackbar({
+        open: true,
+        message: outputPath ? `${text.exportSuccess}: ${outputPath}` : text.exportCanceled,
+        severity: 'success',
+      });
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.message || text.exportFailed, severity: 'error' });
+    }
+  };
+
   const handleAcceptAI = useCallback((aiContent: string) => {
     const editor = document.querySelector('.tiptap-editor');
     if (editor) {
@@ -268,6 +301,25 @@ export function EditorPage(): React.ReactElement {
             </IconButton>
           </span>
         </Tooltip>
+
+        <Button
+          size="small"
+          startIcon={<ExportIcon />}
+          onClick={(event) => setExportMenuAnchor(event.currentTarget)}
+          sx={{ color: '#cdd6f4', fontSize: 12, textTransform: 'none' }}
+        >
+          {text.exportChapters}
+        </Button>
+        <Menu
+          anchorEl={exportMenuAnchor}
+          open={Boolean(exportMenuAnchor)}
+          onClose={() => setExportMenuAnchor(null)}
+        >
+          <MenuItem onClick={() => void handleExport('markdown')}>{text.exportAsMarkdown}</MenuItem>
+          <MenuItem onClick={() => void handleExport('html')}>{text.exportAsHtml}</MenuItem>
+          <MenuItem onClick={() => void handleExport('txt')}>{text.exportAsTxt}</MenuItem>
+          <MenuItem onClick={() => void handleExport('jimeng')}>{text.exportAsJimeng}</MenuItem>
+        </Menu>
 
         <Tooltip title={text.deleteChapter}>
           <IconButton

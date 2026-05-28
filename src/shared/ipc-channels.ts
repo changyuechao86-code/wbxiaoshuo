@@ -57,6 +57,7 @@ export const IPC_CHANNELS = {
   FILE_RESTORE: 'file:restore',
   FILE_EXPORT: 'file:export',
   FILE_IMPORT: 'file:import',
+  CHAPTER_EXPORT: 'chapter:export',
 
   APP_GET_PATH: 'app:get-path',
 } as const;

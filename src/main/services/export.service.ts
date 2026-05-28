@@ -3,8 +3,7 @@ import path from 'node:path';
 import { chapterRepo } from '../db/repositories/chapter.repo';
 import { projectRepo } from '../db/repositories/project.repo';
 import { logger } from '../utils/logger';
-
-export type ExportFormat = 'txt' | 'markdown' | 'html' | 'docx' | 'jimeng';
+import type { ExportFormat } from '../../shared/types';
 
 export interface ExportOptions {
   format: ExportFormat;
@@ -105,8 +104,6 @@ function renderExport(projectName: string, chapters: ExportChapter[], format: Ex
       return renderHtml(projectName, chapters);
     case 'jimeng':
       return renderJimeng(chapters);
-    case 'docx':
-      throw new Error('Word export is not available yet. Please export Markdown or HTML first.');
     default:
       assertNever(format);
   }
