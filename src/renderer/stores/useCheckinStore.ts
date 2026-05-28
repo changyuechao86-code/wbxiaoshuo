@@ -1,8 +1,10 @@
-/**
- * 打卡状态 Store (P1)
- */
 import { create } from 'zustand';
 import type { CheckIn } from '../../shared/types';
+
+const text = {
+  loadMonthlyFailed: '\u52a0\u8f7d\u6708\u5ea6\u6253\u5361\u5931\u8d25',
+  loadTodayFailed: '\u52a0\u8f7d\u4eca\u65e5\u6253\u5361\u5931\u8d25',
+};
 
 interface CheckInState {
   todayCheckin: CheckIn | null;
@@ -27,7 +29,7 @@ export const useCheckinStore = create<CheckInState>((set) => ({
       const todayCheckin = await window.electronAPI.checkin.today(projectId);
       set({ todayCheckin, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message || '加载今日打卡失败', isLoading: false });
+      set({ error: err.message || text.loadTodayFailed, isLoading: false });
     }
   },
 
@@ -37,7 +39,7 @@ export const useCheckinStore = create<CheckInState>((set) => ({
       const monthlyCheckins = await window.electronAPI.checkin.monthly(projectId, year, month);
       set({ monthlyCheckins, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message || '加载月度打卡失败', isLoading: false });
+      set({ error: err.message || text.loadMonthlyFailed, isLoading: false });
     }
   },
 

@@ -1,8 +1,11 @@
-/**
- * 收益状态 Store (P1)
- */
 import { create } from 'zustand';
-import type { Revenue, CreateRevenueDTO } from '../../shared/types';
+import type { CreateRevenueDTO, Revenue } from '../../shared/types';
+
+const text = {
+  createFailed: '\u521b\u5efa\u6536\u76ca\u8bb0\u5f55\u5931\u8d25',
+  deleteFailed: '\u5220\u9664\u6536\u76ca\u8bb0\u5f55\u5931\u8d25',
+  loadFailed: '\u52a0\u8f7d\u6536\u76ca\u8bb0\u5f55\u5931\u8d25',
+};
 
 interface RevenueState {
   revenues: Revenue[];
@@ -26,18 +29,18 @@ export const useRevenueStore = create<RevenueState>((set) => ({
       const revenues = await window.electronAPI.revenue.list(projectId);
       set({ revenues, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message || '加载收益记录失败', isLoading: false });
+      set({ error: err.message || text.loadFailed, isLoading: false });
     }
   },
 
   createRevenue: async (data: CreateRevenueDTO) => {
     set({ error: null });
     try {
-      const r = await window.electronAPI.revenue.create(data);
-      set((s) => ({ revenues: [r, ...s.revenues] }));
-      return r;
+      const revenue = await window.electronAPI.revenue.create(data);
+      set((s) => ({ revenues: [revenue, ...s.revenues] }));
+      return revenue;
     } catch (err: any) {
-      set({ error: err.message || '创建收益记录失败' });
+      set({ error: err.message || text.createFailed });
       throw err;
     }
   },
@@ -46,9 +49,9 @@ export const useRevenueStore = create<RevenueState>((set) => ({
     set({ error: null });
     try {
       await window.electronAPI.revenue.delete(id);
-      set((s) => ({ revenues: s.revenues.filter((r) => r.id !== id) }));
+      set((s) => ({ revenues: s.revenues.filter((revenue) => revenue.id !== id) }));
     } catch (err: any) {
-      set({ error: err.message || '删除收益记录失败' });
+      set({ error: err.message || text.deleteFailed });
       throw err;
     }
   },

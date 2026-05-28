@@ -1,8 +1,12 @@
-/**
- * 世界观设定状态 Store
- */
 import { create } from 'zustand';
-import type { WorldSetting, CreateWorldSettingDTO, UpdateWorldSettingDTO } from '../../shared/types';
+import type { CreateWorldSettingDTO, UpdateWorldSettingDTO, WorldSetting } from '../../shared/types';
+
+const text = {
+  createFailed: '\u521b\u5efa\u4e16\u754c\u89c2\u8bbe\u5b9a\u5931\u8d25',
+  deleteFailed: '\u5220\u9664\u4e16\u754c\u89c2\u8bbe\u5b9a\u5931\u8d25',
+  loadFailed: '\u52a0\u8f7d\u4e16\u754c\u89c2\u8bbe\u5b9a\u5931\u8d25',
+  updateFailed: '\u66f4\u65b0\u4e16\u754c\u89c2\u8bbe\u5b9a\u5931\u8d25',
+};
 
 interface WorldSettingState {
   worldSettings: WorldSetting[];
@@ -27,18 +31,18 @@ export const useWorldSettingStore = create<WorldSettingState>((set) => ({
       const worldSettings = await window.electronAPI.worldSetting.list(projectId);
       set({ worldSettings, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message || '加载世界观设定失败', isLoading: false });
+      set({ error: err.message || text.loadFailed, isLoading: false });
     }
   },
 
   createWorldSetting: async (data: CreateWorldSettingDTO) => {
     set({ error: null });
     try {
-      const ws = await window.electronAPI.worldSetting.create(data);
-      set((s) => ({ worldSettings: [...s.worldSettings, ws] }));
-      return ws;
+      const worldSetting = await window.electronAPI.worldSetting.create(data);
+      set((s) => ({ worldSettings: [...s.worldSettings, worldSetting] }));
+      return worldSetting;
     } catch (err: any) {
-      set({ error: err.message || '创建世界观设定失败' });
+      set({ error: err.message || text.createFailed });
       throw err;
     }
   },
@@ -48,10 +52,12 @@ export const useWorldSettingStore = create<WorldSettingState>((set) => ({
     try {
       const updated = await window.electronAPI.worldSetting.update(id, data);
       set((s) => ({
-        worldSettings: s.worldSettings.map((w) => w.id === id ? updated : w),
+        worldSettings: s.worldSettings.map((worldSetting) => (
+          worldSetting.id === id ? updated : worldSetting
+        )),
       }));
     } catch (err: any) {
-      set({ error: err.message || '更新世界观设定失败' });
+      set({ error: err.message || text.updateFailed });
       throw err;
     }
   },
@@ -60,9 +66,9 @@ export const useWorldSettingStore = create<WorldSettingState>((set) => ({
     set({ error: null });
     try {
       await window.electronAPI.worldSetting.delete(id);
-      set((s) => ({ worldSettings: s.worldSettings.filter((w) => w.id !== id) }));
+      set((s) => ({ worldSettings: s.worldSettings.filter((worldSetting) => worldSetting.id !== id) }));
     } catch (err: any) {
-      set({ error: err.message || '删除世界观设定失败' });
+      set({ error: err.message || text.deleteFailed });
       throw err;
     }
   },
