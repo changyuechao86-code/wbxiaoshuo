@@ -118,9 +118,9 @@ export interface ElectronAPI {
   // File
   file: {
     backup(): Promise<string>;
-    restore(filePath?: string): Promise<void>;
+    restore(filePath?: string): Promise<boolean>;
     exportDb(): Promise<string>;
-    importDb(filePath?: string): Promise<void>;
+    importDb(filePath?: string): Promise<boolean>;
   };
 
   // App
@@ -261,9 +261,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   file: {
     backup: createInvoker<string>(IPC_CHANNELS.FILE_BACKUP),
-    restore: createInvoker<void>(IPC_CHANNELS.FILE_RESTORE),
+    restore: createInvoker<boolean>(IPC_CHANNELS.FILE_RESTORE),
     exportDb: createInvoker<string>(IPC_CHANNELS.FILE_EXPORT),
-    importDb: createInvoker<void>(IPC_CHANNELS.FILE_IMPORT),
+    importDb: createInvoker<boolean>(IPC_CHANNELS.FILE_IMPORT),
   },
 
   app: {

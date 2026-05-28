@@ -36,15 +36,18 @@ const text = {
   dataManagement: '\u6570\u636e\u7ba1\u7406',
   editor: '\u7f16\u8f91\u5668',
   exportData: '\u5bfc\u51fa\u6570\u636e\u5e93',
+  exportCanceled: '\u5df2\u53d6\u6d88\u5bfc\u51fa',
   exportDone: '\u5bfc\u51fa\u6210\u529f',
   exportFailed: '\u5bfc\u51fa\u5931\u8d25',
   fontSize: '\u5b57\u4f53\u5927\u5c0f',
   importData: '\u5bfc\u5165\u6570\u636e\u5e93',
+  importCanceled: '\u5df2\u53d6\u6d88\u5bfc\u5165',
   importDone: '\u5bfc\u5165\u6210\u529f\uff0c\u8bf7\u91cd\u542f\u5e94\u7528',
   importFailed: '\u5bfc\u5165\u5931\u8d25',
   lineHeight: '\u884c\u8ddd',
   model: '\u6a21\u578b',
   restoreData: '\u6062\u590d\u6570\u636e',
+  restoreCanceled: '\u5df2\u53d6\u6d88\u6062\u590d',
   restoreDone: '\u6062\u590d\u6210\u529f\uff0c\u8bf7\u91cd\u542f\u5e94\u7528',
   restoreFailed: '\u6062\u590d\u5931\u8d25',
   saveConfig: '\u4fdd\u5b58\u914d\u7f6e',
@@ -138,7 +141,11 @@ export function SettingsPage(): React.ReactElement {
 
   const handleRestore = async (): Promise<void> => {
     try {
-      await window.electronAPI.file.restore();
+      const restored = await window.electronAPI.file.restore();
+      if (!restored) {
+        setSnackbar({ open: true, message: text.restoreCanceled, severity: 'success' });
+        return;
+      }
       setSnackbar({ open: true, message: text.restoreDone, severity: 'success' });
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message || text.restoreFailed, severity: 'error' });
@@ -148,6 +155,10 @@ export function SettingsPage(): React.ReactElement {
   const handleExport = async (): Promise<void> => {
     try {
       const path = await window.electronAPI.file.exportDb();
+      if (!path) {
+        setSnackbar({ open: true, message: text.exportCanceled, severity: 'success' });
+        return;
+      }
       setSnackbar({ open: true, message: formatPathMessage(text.exportDone, path), severity: 'success' });
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message || text.exportFailed, severity: 'error' });
@@ -156,7 +167,11 @@ export function SettingsPage(): React.ReactElement {
 
   const handleImport = async (): Promise<void> => {
     try {
-      await window.electronAPI.file.importDb();
+      const imported = await window.electronAPI.file.importDb();
+      if (!imported) {
+        setSnackbar({ open: true, message: text.importCanceled, severity: 'success' });
+        return;
+      }
       setSnackbar({ open: true, message: text.importDone, severity: 'success' });
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message || text.importFailed, severity: 'error' });
