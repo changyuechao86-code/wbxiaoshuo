@@ -1,8 +1,14 @@
-/**
- * 项目状态 Store
- */
 import { create } from 'zustand';
-import type { Project, CreateProjectDTO, UpdateProjectDTO } from '../../shared/types';
+import type { CreateProjectDTO, Project, UpdateProjectDTO } from '../../shared/types';
+
+const text = {
+  createFailed: '\u521b\u5efa\u9879\u76ee\u5931\u8d25',
+  deleteFailed: '\u5220\u9664\u9879\u76ee\u5931\u8d25',
+  loadFailed: '\u52a0\u8f7d\u9879\u76ee\u5931\u8d25',
+  loadListFailed: '\u52a0\u8f7d\u9879\u76ee\u5217\u8868\u5931\u8d25',
+  notFound: '\u9879\u76ee\u4e0d\u5b58\u5728',
+  updateFailed: '\u66f4\u65b0\u9879\u76ee\u5931\u8d25',
+};
 
 interface ProjectState {
   projects: Project[];
@@ -19,7 +25,7 @@ interface ProjectState {
   clearError: () => void;
 }
 
-export const useProjectStore = create<ProjectState>((set, get) => ({
+export const useProjectStore = create<ProjectState>((set) => ({
   projects: [],
   currentProject: null,
   isLoading: false,
@@ -31,7 +37,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const projects = await window.electronAPI.project.list();
       set({ projects, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message || '加载项目列表失败', isLoading: false });
+      set({ error: err.message || text.loadListFailed, isLoading: false });
     }
   },
 
@@ -42,10 +48,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       if (project) {
         set({ currentProject: project, isLoading: false });
       } else {
-        set({ error: '项目不存在', isLoading: false });
+        set({ error: text.notFound, isLoading: false });
       }
     } catch (err: any) {
-      set({ error: err.message || '加载项目失败', isLoading: false });
+      set({ error: err.message || text.loadFailed, isLoading: false });
     }
   },
 
@@ -56,7 +62,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set((s) => ({ projects: [project, ...s.projects], isLoading: false }));
       return project;
     } catch (err: any) {
-      set({ error: err.message || '创建项目失败', isLoading: false });
+      set({ error: err.message || text.createFailed, isLoading: false });
       throw err;
     }
   },
@@ -66,11 +72,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     try {
       const updated = await window.electronAPI.project.update(id, data);
       set((s) => ({
-        projects: s.projects.map((p) => p.id === id ? updated : p),
+        projects: s.projects.map((p) => (p.id === id ? updated : p)),
         currentProject: s.currentProject?.id === id ? updated : s.currentProject,
       }));
     } catch (err: any) {
-      set({ error: err.message || '更新项目失败' });
+      set({ error: err.message || text.updateFailed });
       throw err;
     }
   },
@@ -84,7 +90,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         currentProject: s.currentProject?.id === id ? null : s.currentProject,
       }));
     } catch (err: any) {
-      set({ error: err.message || '删除项目失败' });
+      set({ error: err.message || text.deleteFailed });
       throw err;
     }
   },
