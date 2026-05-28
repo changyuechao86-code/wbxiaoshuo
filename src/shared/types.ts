@@ -1,30 +1,11 @@
-// ==================== src/shared/types.ts ====================
-
-/** 项目类型 */
 export type ProjectType = 'novel' | 'script';
-
-/** 章节状态 */
 export type ChapterStatus = 'draft' | 'writing' | 'completed';
-
-/** 大纲节点类型 */
 export type OutlineNodeType = 'volume' | 'chapter';
-
-/** 伏笔状态 */
 export type ForeshadowStatus = 'planted' | 'hinted' | 'resolved';
-
-/** 世界观分类 */
 export type WorldCategory = 'geography' | 'faction' | 'history' | 'magic' | 'culture' | 'creature' | 'other';
-
-/** 角色关系类型 */
 export type RelationType = 'friend' | 'enemy' | 'family' | 'lover' | 'master_student' | 'colleague' | 'other';
-
-/** AI 动作类型 */
 export type AIAction = 'continue' | 'polish' | 'outline' | 'dialogue';
-
-/** AI 提供商 */
 export type AIProvider = 'deepseek';
-
-// ==================== 数据模型 ====================
 
 export interface Project {
   id: string;
@@ -147,8 +128,6 @@ export interface OutlineReorderItem {
   order: number;
 }
 
-// ==================== AI 类型 ====================
-
 export interface AIConfig {
   provider: AIProvider;
   apiKey: string;
@@ -174,8 +153,6 @@ export interface AIStreamChunk {
   content: string;
   done: boolean;
 }
-
-// ==================== DTO 类型 ====================
 
 export type CreateProjectDTO = Omit<Project, 'id' | 'createdAt' | 'updatedAt'>;
 export type UpdateProjectDTO = Partial<Pick<Project, 'name' | 'type' | 'dailyGoal'>>;
