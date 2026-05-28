@@ -1,64 +1,93 @@
-/**
- * 章节编辑器页面
- * 集成 TipTap 编辑器、工具栏、状态栏、AI 助手面板
- */
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import type { Editor } from '@tiptap/react';
 import {
-  Button,
-  IconButton,
-  Tooltip,
-  Select,
-  MenuItem,
-  FormControl,
-  Snackbar,
   Alert,
+  FormControl,
+  IconButton,
+  MenuItem,
+  Select,
+  Snackbar,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Delete as DeleteIcon,
-  AutoAwesome as AIIcon,
   ArrowBack as BackIcon,
+  AutoAwesome as AIIcon,
+  Delete as DeleteIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
-import { TipTapEditor } from '../components/editor/TipTapEditor';
-import { EditorToolbar } from '../components/editor/EditorToolbar';
-import { EditorStatusBar } from '../components/editor/EditorStatusBar';
 import { AIAssistantPanel } from '../components/editor/AIAssistantPanel';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
-import { useChapterStore } from '../stores/useChapterStore';
-import { useEditorStore } from '../stores/useEditorStore';
-import { useCharacterStore } from '../stores/useCharacterStore';
+import { EditorStatusBar } from '../components/editor/EditorStatusBar';
+import { EditorToolbar } from '../components/editor/EditorToolbar';
+import { TipTapEditor } from '../components/editor/TipTapEditor';
 import { useAppStore } from '../stores/useAppStore';
+import { useChapterStore } from '../stores/useChapterStore';
+import { useCharacterStore } from '../stores/useCharacterStore';
+import { useEditorStore } from '../stores/useEditorStore';
 import { useAutoSave } from '../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+
+const EMPTY_DOC = '{"type":"doc","content":[{"type":"paragraph"}]}';
+
+const text = {
+  aiAssistant: '\u0041\u0049 \u52a9\u624b (Ctrl+Shift+A)',
+  back: '\u8fd4\u56de',
+  cancelSwitch: '\u5f53\u524d\u7ae0\u8282\u4fdd\u5b58\u5931\u8d25\uff0c\u6682\u4e0d\u5207\u6362',
+  chapterCreated: '\u65b0\u7ae0\u8282\u5df2\u521b\u5efa',
+  chapterCreateFailed: '\u521b\u5efa\u7ae0\u8282\u5931\u8d25',
+  chapterDeleted: '\u7ae0\u8282\u5df2\u5220\u9664',
+  chapterDeleteFailed: '\u5220\u9664\u7ae0\u8282\u5931\u8d25',
+  chapterPlaceholder: '\u7ae0\u8282\u6807\u9898...',
+  confirmDelete: '\u5220\u9664',
+  deleteChapter: '\u5220\u9664\u7ae0\u8282',
+  deleteMessagePrefix: '\u786e\u5b9a\u8981\u5220\u9664\u300c',
+  deleteMessageSuffix: '\u300d\u5417\uff1f\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002',
+  editorPlaceholder: '\u5f00\u59cb\u521b\u4f5c\u4f60\u7684\u6545\u4e8b...',
+  fallbackChapter: '\u6b64\u7ae0\u8282',
+  newChapter: '\u65b0\u5efa\u7ae0\u8282 (Ctrl+N)',
+  newChapterTitle: '\u65b0\u7ae0\u8282',
+  saveFailed: '\u4fdd\u5b58\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5',
+  saveNow: '\u7acb\u5373\u4fdd\u5b58 (Ctrl+S)',
+  saveSuccess: '\u4fdd\u5b58\u6210\u529f',
+  selectChapter: '\u9009\u62e9\u7ae0\u8282...',
+};
 
 export function EditorPage(): React.ReactElement {
   const { projectId, chapterId } = useParams<{ projectId: string; chapterId?: string }>();
   const navigate = useNavigate();
 
-  const { chapters, currentChapter, loadChapters, loadChapter, createChapter, deleteChapter, setCurrentChapter } =
+  const { chapters, currentChapter, loadChapters, loadChapter, createChapter, deleteChapter } =
     useChapterStore();
-  const { showAIPanel, toggleAIPanel, isDirty, wordCount } = useEditorStore();
-  const { loadCharacters, characters } = useCharacterStore();
+  const { showAIPanel, toggleAIPanel, isDirty } = useEditorStore();
+  const { loadCharacters } = useCharacterStore();
   const { setCurrentProjectId } = useAppStore();
 
   const [chapterTitle, setChapterTitle] = useState('');
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
-    open: false, message: '', severity: 'success',
+    open: false,
+    message: '',
+    severity: 'success',
   });
 
-  const { triggerSave, saveNow } = useAutoSave();
+  const { triggerSave, saveNow, cleanup } = useAutoSave();
   const editorRef = useRef<{ content: string; plainText: string; wordCount: number }>({
     content: '',
     plainText: '',
     wordCount: 0,
   });
+  const lastEditedChapterIdRef = useRef<string | null>(null);
 
-  // 初始化
+  const saveCurrentDraft = useCallback(async (): Promise<void> => {
+    if (!lastEditedChapterIdRef.current || !isDirty) return;
+
+    const { content, plainText, wordCount } = editorRef.current;
+    await saveNow(lastEditedChapterIdRef.current, content, plainText, wordCount);
+  }, [isDirty, saveNow]);
+
   useEffect(() => {
     if (projectId) {
       setCurrentProjectId(projectId);
@@ -67,7 +96,6 @@ export function EditorPage(): React.ReactElement {
     }
   }, [projectId, loadChapters, loadCharacters, setCurrentProjectId]);
 
-  // 加载选中章节
   useEffect(() => {
     if (chapterId) {
       loadChapter(chapterId);
@@ -76,90 +104,99 @@ export function EditorPage(): React.ReactElement {
     }
   }, [chapterId, chapters, loadChapter]);
 
-  // 同步章节标题
   useEffect(() => {
     if (currentChapter) {
       setChapterTitle(currentChapter.title);
+      lastEditedChapterIdRef.current = currentChapter.id;
+      editorRef.current = {
+        content: currentChapter.content,
+        plainText: currentChapter.plainText,
+        wordCount: currentChapter.wordCount,
+      };
     }
   }, [currentChapter]);
 
-  // 编辑器内容更新回调
+  useEffect(() => cleanup, [cleanup]);
+
   const handleEditorUpdate = useCallback(
-    (json: string, plainText: string, wc: number) => {
-      editorRef.current = { content: json, plainText, wordCount: wc };
+    (json: string, plainText: string, wordCount: number) => {
+      editorRef.current = { content: json, plainText, wordCount };
       if (currentChapter) {
-        triggerSave(currentChapter.id, json, plainText, wc);
+        lastEditedChapterIdRef.current = currentChapter.id;
+        triggerSave(currentChapter.id, json, plainText, wordCount);
       }
     },
     [currentChapter, triggerSave],
   );
 
-  // 手动保存
   const handleManualSave = useCallback(async () => {
-    if (!currentChapter) return;
-    const { content, plainText, wordCount: wc } = editorRef.current;
     try {
-      await saveNow(currentChapter.id, content, plainText, wc);
-      setSnackbar({ open: true, message: '保存成功', severity: 'success' });
+      await saveCurrentDraft();
+      setSnackbar({ open: true, message: text.saveSuccess, severity: 'success' });
     } catch {
-      setSnackbar({ open: true, message: '保存失败', severity: 'error' });
+      setSnackbar({ open: true, message: text.saveFailed, severity: 'error' });
     }
-  }, [currentChapter, saveNow]);
+  }, [saveCurrentDraft]);
 
-  // 新建章节
   const handleCreateChapter = async (): Promise<void> => {
     if (!projectId) return;
     const order = chapters.length;
+
     try {
+      await saveCurrentDraft();
       const chapter = await createChapter({
         projectId,
-        title: `新章节 ${order + 1}`,
-        content: '{"type":"doc","content":[{"type":"paragraph"}]}',
+        title: `${text.newChapterTitle} ${order + 1}`,
+        content: EMPTY_DOC,
         plainText: '',
         wordCount: 0,
         status: 'draft',
         order,
       });
       setChapterTitle(chapter.title);
-      setSnackbar({ open: true, message: '新章节已创建', severity: 'success' });
+      setSnackbar({ open: true, message: text.chapterCreated, severity: 'success' });
     } catch {
-      setSnackbar({ open: true, message: '创建章节失败', severity: 'error' });
+      setSnackbar({ open: true, message: text.chapterCreateFailed, severity: 'error' });
     }
   };
 
-  // 删除章节
   const handleDeleteChapter = async (): Promise<void> => {
     if (!currentChapter) return;
+
     try {
       await deleteChapter(currentChapter.id);
       setShowDeleteConfirm(false);
-      setSnackbar({ open: true, message: '章节已删除', severity: 'success' });
+      setSnackbar({ open: true, message: text.chapterDeleted, severity: 'success' });
     } catch {
-      setSnackbar({ open: true, message: '删除章节失败', severity: 'error' });
+      setSnackbar({ open: true, message: text.chapterDeleteFailed, severity: 'error' });
     }
   };
 
-  // AI 面板：接受内容
-  const handleAcceptAI = useCallback(
-    (aiContent: string) => {
-      // 将 AI 生成的内容追加到编辑器
-      const editor = document.querySelector('.tiptap-editor');
-      if (editor) {
-        const p = document.createElement('p');
-        p.textContent = aiContent;
-        editor.appendChild(p);
-      }
-    },
-    [],
-  );
+  const handleChapterSwitch = async (id: string): Promise<void> => {
+    if (!id || id === currentChapter?.id) return;
 
-  // 获取上下文文本（选中文本或最近1000字符）
+    try {
+      await saveCurrentDraft();
+      navigate(`/editor/${projectId}/${id}`);
+    } catch {
+      setSnackbar({ open: true, message: text.cancelSwitch, severity: 'error' });
+    }
+  };
+
+  const handleAcceptAI = useCallback((aiContent: string) => {
+    const editor = document.querySelector('.tiptap-editor');
+    if (editor) {
+      const p = document.createElement('p');
+      p.textContent = aiContent;
+      editor.appendChild(p);
+    }
+  }, []);
+
   const getContextText = useCallback((): string => {
     if (!currentChapter) return '';
     return currentChapter.plainText.slice(-1000);
   }, [currentChapter]);
 
-  // 快捷键
   useKeyboardShortcuts({
     onSave: handleManualSave,
     onAIPanel: toggleAIPanel,
@@ -168,15 +205,13 @@ export function EditorPage(): React.ReactElement {
 
   return (
     <div className="flex flex-col h-full">
-      {/* 顶部：章节标题和操作栏 */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#2a2a4e] bg-[#0f0f23]">
-        <Tooltip title="返回">
+        <Tooltip title={text.back}>
           <IconButton size="small" onClick={() => navigate(-1)} sx={{ color: '#6c7086' }}>
             <BackIcon fontSize="small" />
           </IconButton>
         </Tooltip>
 
-        {/* 章节标题输入 */}
         <input
           type="text"
           value={chapterTitle}
@@ -187,24 +222,20 @@ export function EditorPage(): React.ReactElement {
             }
           }}
           className="bg-transparent text-sm text-[#cdd6f4] border-none outline-none flex-1 min-w-0"
-          placeholder="章节标题..."
+          placeholder={text.chapterPlaceholder}
         />
 
-        {/* 章节切换 */}
         <FormControl size="small" sx={{ minWidth: 140 }}>
           <Select
             value={currentChapter?.id || ''}
             onChange={(e) => {
-              const id = e.target.value;
-              if (id) {
-                navigate(`/editor/${projectId}/${id}`);
-              }
+              void handleChapterSwitch(e.target.value);
             }}
             displayEmpty
             sx={{ fontSize: 12, color: '#cdd6f4' }}
           >
             <MenuItem value="" disabled>
-              选择章节...
+              {text.selectChapter}
             </MenuItem>
             {chapters.map((ch) => (
               <MenuItem key={ch.id} value={ch.id} sx={{ fontSize: 13 }}>
@@ -214,14 +245,13 @@ export function EditorPage(): React.ReactElement {
           </Select>
         </FormControl>
 
-        {/* 操作按钮 */}
-        <Tooltip title="新建章节 (Ctrl+N)">
+        <Tooltip title={text.newChapter}>
           <IconButton size="small" onClick={handleCreateChapter} sx={{ color: '#7c3aed' }}>
             <AddIcon fontSize="small" />
           </IconButton>
         </Tooltip>
 
-        <Tooltip title="AI 助手 (Ctrl+Shift+A)">
+        <Tooltip title={text.aiAssistant}>
           <IconButton
             size="small"
             onClick={toggleAIPanel}
@@ -231,13 +261,15 @@ export function EditorPage(): React.ReactElement {
           </IconButton>
         </Tooltip>
 
-        <Tooltip title="立即保存 (Ctrl+S)">
-          <IconButton size="small" onClick={handleManualSave} sx={{ color: '#4caf50' }}>
-            <SaveIcon fontSize="small" />
-          </IconButton>
+        <Tooltip title={text.saveNow}>
+          <span>
+            <IconButton size="small" onClick={handleManualSave} disabled={!isDirty} sx={{ color: '#4caf50' }}>
+              <SaveIcon fontSize="small" />
+            </IconButton>
+          </span>
         </Tooltip>
 
-        <Tooltip title="删除章节">
+        <Tooltip title={text.deleteChapter}>
           <IconButton
             size="small"
             onClick={() => setShowDeleteConfirm(true)}
@@ -248,21 +280,18 @@ export function EditorPage(): React.ReactElement {
         </Tooltip>
       </div>
 
-      {/* 工具栏 */}
       <EditorToolbar editor={editorInstance} />
 
-      {/* 编辑器 + AI 面板 */}
       <div className="flex flex-1 overflow-hidden">
         <div className="flex flex-col flex-1 min-w-0">
           <TipTapEditor
-            content={currentChapter?.content || '{"type":"doc","content":[{"type":"paragraph"}]}'}
+            content={currentChapter?.content || EMPTY_DOC}
             onUpdate={handleEditorUpdate}
             onEditorReady={setEditorInstance}
-            placeholder="开始创作你的故事..."
+            placeholder={text.editorPlaceholder}
           />
         </div>
 
-        {/* AI 助手侧面板 */}
         {showAIPanel && (
           <div style={{ width: 320, minWidth: 320 }}>
             <AIAssistantPanel
@@ -273,21 +302,18 @@ export function EditorPage(): React.ReactElement {
         )}
       </div>
 
-      {/* 状态栏 */}
       <EditorStatusBar />
 
-      {/* 删除确认 */}
       <ConfirmDialog
         open={showDeleteConfirm}
-        title="删除章节"
-        message={`确定要删除「${currentChapter?.title || '此章节'}」吗？此操作不可撤销。`}
-        confirmLabel="删除"
+        title={text.deleteChapter}
+        message={`${text.deleteMessagePrefix}${currentChapter?.title || text.fallbackChapter}${text.deleteMessageSuffix}`}
+        confirmLabel={text.confirmDelete}
         confirmColor="error"
         onConfirm={handleDeleteChapter}
         onCancel={() => setShowDeleteConfirm(false)}
       />
 
-      {/* 消息提示 */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}

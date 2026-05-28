@@ -9,7 +9,7 @@ import { useChapterStore } from '../stores/useChapterStore';
 export function useAutoSave() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { isDirty, setDirty, setSaveStatus } = useEditorStore();
+  const { isDirty, setDirty, setLastSavedAt, setSaveStatus } = useEditorStore();
   const { saveChapter } = useChapterStore();
 
   /** 触发自动保存 */
@@ -34,13 +34,16 @@ export function useAutoSave() {
             wordCount,
           });
           setDirty(false);
+          setLastSavedAt(new Date().toISOString());
           setSaveStatus('saved');
         } catch {
           setSaveStatus('error');
+        } finally {
+          saveTimerRef.current = null;
         }
       }, 2000);
     },
-    [saveChapter, setDirty, setSaveStatus],
+    [saveChapter, setDirty, setLastSavedAt, setSaveStatus],
   );
 
   /** 立即保存（手动触发） */
@@ -50,6 +53,7 @@ export function useAutoSave() {
 
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
       }
 
       setSaveStatus('saving');
@@ -60,12 +64,14 @@ export function useAutoSave() {
           wordCount,
         });
         setDirty(false);
+        setLastSavedAt(new Date().toISOString());
         setSaveStatus('saved');
-      } catch {
+      } catch (error) {
         setSaveStatus('error');
+        throw error;
       }
     },
-    [saveChapter, setDirty, setSaveStatus],
+    [saveChapter, setDirty, setLastSavedAt, setSaveStatus],
   );
 
   /** 清理定时器 */

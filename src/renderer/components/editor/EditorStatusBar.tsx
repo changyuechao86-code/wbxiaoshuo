@@ -1,17 +1,25 @@
-/**
- * 编辑器底部状态栏 — 字数/进度/保存状态
- */
 import React from 'react';
-import { Chip, Tooltip, LinearProgress } from '@mui/material';
+import { Chip, LinearProgress, Tooltip } from '@mui/material';
 import {
   CheckCircle as CheckIcon,
-  Save as SaveIcon,
   Error as ErrorIcon,
+  Save as SaveIcon,
   Sync as SavingIcon,
 } from '@mui/icons-material';
-import { useEditorStore } from '../../stores/useEditorStore';
 import { useDailyProgress } from '../../hooks/useDailyProgress';
+import { useEditorStore } from '../../stores/useEditorStore';
 import { formatDateShort } from '../../utils/date';
+
+const text = {
+  goalMet: '\u4eca\u65e5\u76ee\u6807\u5df2\u8fbe\u6210',
+  remainingPrefix: '\u8fd8\u5dee',
+  saved: '\u5df2\u4fdd\u5b58',
+  saving: '\u4fdd\u5b58\u4e2d...',
+  saveFailed: '\u4fdd\u5b58\u5931\u8d25',
+  unsaved: '\u672a\u4fdd\u5b58',
+  wordCount: '\u5b57\u6570',
+  words: '\u5b57',
+};
 
 export function EditorStatusBar(): React.ReactElement {
   const { wordCount, lastSavedAt, saveStatus, isDirty } = useEditorStore();
@@ -32,13 +40,11 @@ export function EditorStatusBar(): React.ReactElement {
   const getSaveText = (): string => {
     switch (saveStatus) {
       case 'saving':
-        return '保存中...';
+        return text.saving;
       case 'error':
-        return '保存失败';
+        return text.saveFailed;
       case 'saved':
-        return lastSavedAt
-          ? `已保存 ${formatDateShort(lastSavedAt)}`
-          : '已保存';
+        return lastSavedAt ? `${text.saved} ${formatDateShort(lastSavedAt)}` : text.saved;
     }
   };
 
@@ -47,12 +53,10 @@ export function EditorStatusBar(): React.ReactElement {
       className="flex items-center gap-3 px-3 border-t border-[#2a2a4e] bg-[#0f0f23]"
       style={{ height: 32, minHeight: 32 }}
     >
-      {/* 字数统计 */}
       <span className="text-xs text-[#a0a0b0]">
-        字数: <span className="text-[#cdd6f4] font-mono">{wordCount.toLocaleString()}</span>
+        {text.wordCount}: <span className="text-[#cdd6f4] font-mono">{wordCount.toLocaleString()}</span>
       </span>
 
-      {/* 日更进度条 */}
       <div className="flex items-center gap-2 flex-1 max-w-xs">
         <span className="text-xs text-[#a0a0b0] min-w-[120px]">
           {todayWordCount.toLocaleString()} / {dailyGoal.toLocaleString()}
@@ -79,23 +83,20 @@ export function EditorStatusBar(): React.ReactElement {
         </span>
       </div>
 
-      {/* 剩余字数 */}
       {!isGoalMet && (
         <span className="text-xs text-[#6c7086]">
-          还差 {remaining.toLocaleString()} 字
+          {text.remainingPrefix} {remaining.toLocaleString()} {text.words}
         </span>
       )}
 
-      {/* 打卡图标 */}
       {isGoalMet && (
-        <Tooltip title="今日目标已达成">
+        <Tooltip title={text.goalMet}>
           <CheckIcon fontSize="small" sx={{ color: '#4caf50' }} />
         </Tooltip>
       )}
 
       <div className="flex-1" />
 
-      {/* 保存状态 */}
       <div className="flex items-center gap-1">
         {getSaveIcon()}
         <span
@@ -111,10 +112,9 @@ export function EditorStatusBar(): React.ReactElement {
         </span>
       </div>
 
-      {/* 未保存指示器 */}
       {isDirty && (
         <Chip
-          label="未保存"
+          label={text.unsaved}
           size="small"
           sx={{
             height: 18,
