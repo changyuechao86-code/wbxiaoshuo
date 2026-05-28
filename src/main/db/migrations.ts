@@ -29,7 +29,6 @@ export class MigrationRunner {
 
 function getInitialSchema(): string {
   return `
-    -- 项目表
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -39,7 +38,6 @@ function getInitialSchema(): string {
       updated_at TEXT NOT NULL
     );
 
-    -- 章节表
     CREATE TABLE IF NOT EXISTS chapters (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -54,7 +52,6 @@ function getInitialSchema(): string {
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
 
-    -- 角色表
     CREATE TABLE IF NOT EXISTS characters (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -70,7 +67,6 @@ function getInitialSchema(): string {
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
 
-    -- 角色关系表
     CREATE TABLE IF NOT EXISTS character_relations (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -83,7 +79,6 @@ function getInitialSchema(): string {
       FOREIGN KEY (target_id) REFERENCES characters(id) ON DELETE CASCADE
     );
 
-    -- 大纲表
     CREATE TABLE IF NOT EXISTS outlines (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -97,7 +92,6 @@ function getInitialSchema(): string {
       FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE SET NULL
     );
 
-    -- 世界观设定表
     CREATE TABLE IF NOT EXISTS world_settings (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -109,7 +103,6 @@ function getInitialSchema(): string {
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
 
-    -- 伏笔表
     CREATE TABLE IF NOT EXISTS foreshadowings (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -125,7 +118,6 @@ function getInitialSchema(): string {
       FOREIGN KEY (resolved_chapter_id) REFERENCES chapters(id) ON DELETE SET NULL
     );
 
-    -- 收益表
     CREATE TABLE IF NOT EXISTS revenues (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -136,7 +128,6 @@ function getInitialSchema(): string {
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
 
-    -- 打卡表
     CREATE TABLE IF NOT EXISTS checkins (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -146,7 +137,6 @@ function getInitialSchema(): string {
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
 
-    -- 分镜表
     CREATE TABLE IF NOT EXISTS storyboards (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -162,13 +152,11 @@ function getInitialSchema(): string {
       FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
     );
 
-    -- 设置表
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
 
-    -- 索引
     CREATE INDEX IF NOT EXISTS idx_chapters_project ON chapters(project_id, sort_order);
     CREATE INDEX IF NOT EXISTS idx_characters_project ON characters(project_id);
     CREATE INDEX IF NOT EXISTS idx_outlines_project ON outlines(project_id, sort_order);
@@ -181,7 +169,7 @@ function getInitialSchema(): string {
 }
 
 export function runMigrations(): void {
-  const { DatabaseConnection } = require("./connection");
+  const { DatabaseConnection } = require('./connection');
   const db = DatabaseConnection.getInstance().getDb();
   new MigrationRunner().run(db);
 }
