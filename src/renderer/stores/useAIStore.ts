@@ -1,10 +1,12 @@
-/**
- * AI 状态 Store
- * 管理 AI 配置、流式响应状态、生成的文本等
- */
 import { create } from 'zustand';
 import type { AIConfig, AIRequest, AIResponse } from '../../shared/types';
 import type { AIStreamStatus } from '../types/ai';
+
+const text = {
+  loadConfigFailed: '\u52a0\u8f7d AI \u914d\u7f6e\u5931\u8d25',
+  requestFailed: 'AI \u8bf7\u6c42\u5931\u8d25',
+  saveConfigFailed: '\u4fdd\u5b58 AI \u914d\u7f6e\u5931\u8d25',
+};
 
 interface AIState {
   config: AIConfig;
@@ -46,7 +48,7 @@ export const useAIStore = create<AIState>((set, get) => ({
       const config = await window.electronAPI.ai.getConfig();
       set({ config, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message || '加载 AI 配置失败', isLoading: false });
+      set({ error: err.message || text.loadConfigFailed, isLoading: false });
     }
   },
 
@@ -56,15 +58,14 @@ export const useAIStore = create<AIState>((set, get) => ({
       await window.electronAPI.ai.saveConfig(config);
       set({ config });
     } catch (err: any) {
-      set({ error: err.message || '保存 AI 配置失败' });
+      set({ error: err.message || text.saveConfigFailed });
       throw err;
     }
   },
 
   validateConfig: async () => {
     try {
-      const valid = await window.electronAPI.ai.validateConfig(get().config);
-      return valid;
+      return await window.electronAPI.ai.validateConfig(get().config);
     } catch {
       return false;
     }
@@ -74,35 +75,32 @@ export const useAIStore = create<AIState>((set, get) => ({
     set({ status: 'streaming', generatedContent: '', error: null });
 
     const cleanup: (() => void)[] = [];
+    const cleanupListeners = (): void => {
+      cleanup.splice(0).forEach((fn) => fn());
+    };
 
-    // 监听流式数据
-    const unsubChunk = window.electronAPI.ai.onStreamChunk((chunk: string) => {
+    cleanup.push(window.electronAPI.ai.onStreamChunk((chunk: string) => {
       set((s) => ({ generatedContent: s.generatedContent + chunk }));
-    });
-    cleanup.push(unsubChunk);
+    }));
 
-    // 监听完成
-    const unsubComplete = window.electronAPI.ai.onStreamComplete((response: AIResponse) => {
+    cleanup.push(window.electronAPI.ai.onStreamComplete((response: AIResponse) => {
       set({
         status: 'complete',
         usage: response.usage,
       });
-      cleanup.forEach((fn) => fn());
-    });
-    cleanup.push(unsubComplete);
+      cleanupListeners();
+    }));
 
-    // 监听错误
-    const unsubError = window.electronAPI.ai.onStreamError((errMsg: string) => {
+    cleanup.push(window.electronAPI.ai.onStreamError((errMsg: string) => {
       set({ status: 'error', error: errMsg });
-      cleanup.forEach((fn) => fn());
-    });
-    cleanup.push(unsubError);
+      cleanupListeners();
+    }));
 
     try {
       await window.electronAPI.ai.stream(get().config, request);
     } catch (err: any) {
-      set({ status: 'error', error: err.message || 'AI 请求失败' });
-      cleanup.forEach((fn) => fn());
+      set({ status: 'error', error: err.message || text.requestFailed });
+      cleanupListeners();
     }
   },
 

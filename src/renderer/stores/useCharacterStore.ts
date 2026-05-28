@@ -1,8 +1,21 @@
-/**
- * 角色状态 Store
- */
 import { create } from 'zustand';
-import type { Character, CharacterRelation, CreateCharacterDTO, UpdateCharacterDTO, CreateCharacterRelationDTO } from '../../shared/types';
+import type {
+  Character,
+  CharacterRelation,
+  CreateCharacterDTO,
+  CreateCharacterRelationDTO,
+  UpdateCharacterDTO,
+} from '../../shared/types';
+
+const text = {
+  createCharacterFailed: '\u521b\u5efa\u89d2\u8272\u5931\u8d25',
+  createRelationFailed: '\u521b\u5efa\u89d2\u8272\u5173\u7cfb\u5931\u8d25',
+  deleteCharacterFailed: '\u5220\u9664\u89d2\u8272\u5931\u8d25',
+  deleteRelationFailed: '\u5220\u9664\u89d2\u8272\u5173\u7cfb\u5931\u8d25',
+  loadCharactersFailed: '\u52a0\u8f7d\u89d2\u8272\u5217\u8868\u5931\u8d25',
+  loadRelationsFailed: '\u52a0\u8f7d\u89d2\u8272\u5173\u7cfb\u5931\u8d25',
+  updateCharacterFailed: '\u66f4\u65b0\u89d2\u8272\u5931\u8d25',
+};
 
 interface CharacterState {
   characters: Character[];
@@ -22,7 +35,7 @@ interface CharacterState {
   clearError: () => void;
 }
 
-export const useCharacterStore = create<CharacterState>((set, get) => ({
+export const useCharacterStore = create<CharacterState>((set) => ({
   characters: [],
   relations: [],
   currentCharacter: null,
@@ -35,7 +48,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       const characters = await window.electronAPI.character.list(projectId);
       set({ characters, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message || '加载角色列表失败', isLoading: false });
+      set({ error: err.message || text.loadCharactersFailed, isLoading: false });
     }
   },
 
@@ -44,7 +57,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       const relations = await window.electronAPI.charRelation.list(projectId);
       set({ relations });
     } catch (err: any) {
-      set({ error: err.message || '加载角色关系失败' });
+      set({ error: err.message || text.loadRelationsFailed });
     }
   },
 
@@ -55,7 +68,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       set((s) => ({ characters: [...s.characters, character] }));
       return character;
     } catch (err: any) {
-      set({ error: err.message || '创建角色失败' });
+      set({ error: err.message || text.createCharacterFailed });
       throw err;
     }
   },
@@ -65,11 +78,11 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     try {
       const updated = await window.electronAPI.character.update(id, data);
       set((s) => ({
-        characters: s.characters.map((c) => c.id === id ? updated : c),
+        characters: s.characters.map((c) => (c.id === id ? updated : c)),
         currentCharacter: s.currentCharacter?.id === id ? updated : s.currentCharacter,
       }));
     } catch (err: any) {
-      set({ error: err.message || '更新角色失败' });
+      set({ error: err.message || text.updateCharacterFailed });
       throw err;
     }
   },
@@ -84,7 +97,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
         relations: s.relations.filter((r) => r.sourceId !== id && r.targetId !== id),
       }));
     } catch (err: any) {
-      set({ error: err.message || '删除角色失败' });
+      set({ error: err.message || text.deleteCharacterFailed });
       throw err;
     }
   },
@@ -96,7 +109,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       set((s) => ({ relations: [...s.relations, relation] }));
       return relation;
     } catch (err: any) {
-      set({ error: err.message || '创建角色关系失败' });
+      set({ error: err.message || text.createRelationFailed });
       throw err;
     }
   },
@@ -107,7 +120,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       await window.electronAPI.charRelation.delete(id);
       set((s) => ({ relations: s.relations.filter((r) => r.id !== id) }));
     } catch (err: any) {
-      set({ error: err.message || '删除角色关系失败' });
+      set({ error: err.message || text.deleteRelationFailed });
       throw err;
     }
   },
