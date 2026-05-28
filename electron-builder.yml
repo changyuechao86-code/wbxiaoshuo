@@ -1,18 +1,49 @@
 appId: com.novel-script-studio.app
 productName: NovelScript Studio
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
 directories:
   output: release
+
+electronDist: node_modules/electron/dist
+
+files:
+  - dist/**/*
+  - package.json
+  - resources/**/*
+
+extraResources:
+  - from: resources/
+    to: resources/
+
+asar: true
+asarUnpack:
+  - node_modules/better-sqlite3/**/*.node
+npmRebuild: true
+
 win:
-  target: nsis
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
   icon: resources/icon.png
+
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-files:
-  - dist/**/*
-  - resources/**/*
-extraResources:
-  - from: resources/
-    to: resources/
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+  category: public.app-category.productivity
+  icon: resources/icon.png

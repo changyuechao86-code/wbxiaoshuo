@@ -1,13 +1,17 @@
 {
   "name": "novel-script-studio",
   "version": "0.1.0",
-  "description": "小说剧本创作工具 - Electron桌面应用",
+  "description": "Novel and script writing desktop app",
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "vite",
     "dev:electron": "vite & electron .",
     "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && vite build",
-    "build:electron": "npm run build && electron-builder",
+    "package": "npm run build && electron-builder --publish=never",
+    "package:win": "npm run build && electron-builder --win nsis portable --x64 --publish=never",
+    "package:win:dir": "npm run build && electron-builder --win dir --x64 --publish=never",
+    "package:mac": "npm run build && electron-builder --mac dmg zip --x64 --publish=never",
+    "package:mac:dir": "npm run build && electron-builder --mac dir --x64 --publish=never",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -55,23 +59,5 @@
     "vite-plugin-electron-renderer": "^0.14.0",
     "vitest": "^1.6.0"
   },
-  "build": {
-    "appId": "com.novel-script-studio.app",
-    "productName": "NovelScript Studio",
-    "directories": {
-      "output": "release"
-    },
-    "win": {
-      "target": "nsis",
-      "icon": "resources/icon.png"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "files": [
-      "dist/**/*",
-      "resources/**/*"
-    ]
-  }
+  "author": "Chang Yuechao"
 }
