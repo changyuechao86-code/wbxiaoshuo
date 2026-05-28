@@ -1,24 +1,19 @@
-/**
- * IPC 处理器注册入口
- * 集中注册所有 IPC handlers，支持动态扩展
- */
 import { BrowserWindow, ipcMain } from 'electron';
 import { logger } from '../utils/logger';
-import { registerProjectHandlers } from './project.ipc';
+import { registerAIHandlers } from './ai.ipc';
 import { registerChapterHandlers } from './chapter.ipc';
 import { registerCharacterHandlers } from './character.ipc';
-import { registerOutlineHandlers } from './outline.ipc';
-import { registerWorldSettingHandlers } from './world-setting.ipc';
-import { registerForeshadowingHandlers } from './foreshadowing.ipc';
-import { registerRevenueHandlers } from './revenue.ipc';
 import { registerCheckinHandlers } from './checkin.ipc';
-import { registerStoryboardHandlers } from './storyboard.ipc';
-import { registerAIHandlers } from './ai.ipc';
 import { registerFileHandlers } from './file.ipc';
+import { registerForeshadowingHandlers } from './foreshadowing.ipc';
+import { registerOutlineHandlers } from './outline.ipc';
+import { registerProjectHandlers } from './project.ipc';
+import { registerRevenueHandlers } from './revenue.ipc';
+import { registerStoryboardHandlers } from './storyboard.ipc';
+import { registerWorldSettingHandlers } from './world-setting.ipc';
 
-/** 注册所有 IPC 处理器 */
 export function registerAllHandlers(): void {
-  logger.info('注册 IPC 处理器...');
+  logger.info('Registering IPC handlers...');
 
   try {
     registerProjectHandlers();
@@ -33,7 +28,6 @@ export function registerAllHandlers(): void {
     registerAIHandlers();
     registerFileHandlers();
 
-    // 注册窗口控制 handlers
     ipcMain.on('app:minimize', (event) => {
       BrowserWindow.fromWebContents(event.sender)?.minimize();
     });
@@ -47,9 +41,9 @@ export function registerAllHandlers(): void {
       BrowserWindow.fromWebContents(event.sender)?.close();
     });
 
-    logger.info('IPC 处理器注册完成 (11 个模块)');
+    logger.info('IPC handlers registered.');
   } catch (err: any) {
-    logger.error(`IPC 处理器注册失败: ${err.message}`);
+    logger.error(`IPC handler registration failed: ${err.message}`);
     throw err;
   }
 }
